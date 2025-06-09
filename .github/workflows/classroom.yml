@@ -1,0 +1,103 @@
+name: Autograding Tests
+on:
+  pull_request: 
+     branches: [feedback]
+  repository_dispatch:
+  workflow_dispatch: 
+permissions:
+  checks: write
+  actions: read
+  contents: read
+
+
+jobs:
+  get-workflow-EventFilter:
+    outputs:
+      run_id: ${{steps.get_workflow.outputs.run_id}}
+    runs-on: ubuntu-latest
+
+    steps:          
+      - name: Get workFlow Run
+        id: get_workflow
+        uses: madBabel/get-run-id-of-wf-action@v4
+        with:
+            workflow-file: '05-efilters.yaml'    
+            status: 'success'
+            event: 'push'
+            branch: 'features'
+
+  checkJobEventFilter:   
+    needs: get-workflow-EventFilter
+    runs-on: ubuntu-latest    
+    outputs: 
+      stepsExecuted: ${{steps.check_Steps_for_eFilters.outputs.stepsExecuted}}
+    steps:     
+ 
+      - name: Check step executed for JOB
+        id: check_Steps_for_eFilters
+        uses: madBabel/check-jobs-steps-gha-action@v3
+        with:
+          run-id: ${{needs.get-workflow-EventFilter.outputs.run_id}}
+          job-to-execute: echo          
+            
+  get-workflow-aTypes:
+    outputs:
+      run_id: ${{steps.get_workflow.outputs.run_id}}
+    runs-on: ubuntu-latest
+
+    steps:          
+      - name: Get workFlow Run
+        id: get_workflow
+        uses: madBabel/get-run-id-of-wf-action@v4
+        with:
+            workflow-file: '06-atypes.yaml'    
+            status: 'success'
+            event: 'pull_request' 
+            branch: 'feat-1-act-Types'          
+
+  checkJobATypes:   
+    needs: get-workflow-aTypes
+    runs-on: ubuntu-latest    
+    outputs: 
+      stepsExecuted: ${{steps.check_Steps_for_aTypes.outputs.stepsExecuted}}
+    steps:     
+ 
+      - name: Check step executed for JOB
+        id: check_Steps_for_aTypes
+        uses: madBabel/check-jobs-steps-gha-action@v3
+        with:
+          run-id: ${{needs.get-workflow-aTypes.outputs.run_id}}
+          job-to-execute: echo       
+
+  autograding-reporter:    
+      needs: [checkJobEventFilter, checkJobATypes]
+      runs-on: ubuntu-latest    
+      steps:           
+      - name: Run Autograding Step Tests for HEL
+        uses: classroom-resources/autograding-io-grader@v1      
+        id: test1
+        with:
+            test-name: 'Test 5 executed'   
+            command: 'echo ${{needs.checkJobEventFilter.outputs.stepsExecuted}}'
+            input: ''
+            expected-output: 'true'
+            comparison-method: 'exact'  
+            max-score: 50
+      - name: Run Autograding Step Tests for HEL
+        uses: classroom-resources/autograding-io-grader@v1      
+        id: test2
+        with:
+            test-name: 'Test 6 executed'   
+            command: 'echo ${{needs.checkJobATypes.outputs.stepsExecuted}}'
+            input: ''
+            expected-output: 'true'
+            comparison-method: 'exact'  
+            max-score: 50     
+
+      - name: Autograding Reporter
+        uses: classroom-resources/autograding-grading-reporter@v1     
+        with:
+           runners: test1,test2
+        env:
+          TEST1_RESULTS: "${{ steps.test1.outputs.result }}"
+          TEST2_RESULTS: "${{ steps.test2.outputs.result }}"      
